@@ -1,0 +1,7 @@
+# custom file and folder patterns used for testing/development
+**/.todo/*
+*.todo
+*.todo.*
+**/.debug/*
+*.debug
+*.debug.*
