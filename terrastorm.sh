@@ -24,94 +24,93 @@ strStateFiles=''
 strLastArg=''
 strExtraArgs=''
 
+# Check for script dependencies
+for i in "bash" "jq"
+do
+  if ! dep_loc="$(type -p "$i")" || [[ -z $dep_loc ]]; then
+    echo "Error: this script needs the ["$i"] package which is not installed." >&2
+    echo "Exiting..." >&2
+    exit 1
+  fi
+done
+
 # --------------------------------------------------------------------------------------------------
 case $1 in
-  (plan|apply|destroy)
-  # gather the command, datacentre and environment inputs
-  cmd=$1
-  dtc=$2
-  env=$3
-  shift 3
+  (init)
+    # Nothing special. Could probably be added?
+  ;;
 
-  # load the tfvars common to all envs
-  for file in "config/shared/all"/*.tfvars
-  do
-    if [ -f "$file" ];then
-      strVarFiles=${strVarFiles}'-var-file="'${file}'" '
-    fi
-  done
+  (import|plan|apply|destroy)
+    # gather the command, organisation and environment inputs
+    cmd=$1
+    org=$2
+    env=$3
+    shift 3
 
-  # All but the last argument can simply be relayed through
-  eval strExtraArgs=\${*%${!#}};
-
-  # The final argument (Configuration) will indicate which supplementary vars files we want to load
-  eval strLastArg=\${$#};
-
-  # ------------------------------------------------------------------------------------------------
-  case $strLastArg in
-    ("datacentre"|"datacentre/"|"environment"|"environment/")
-
-    # load the tfvars common to environments or datacentres accordingly
-    for file in "config/shared/${strLastArg%/}"/*.tfvars
+    # Add the tfvars files for the requested datacentre/environment
+    for file in "config/${org}/${env}"/*.tfvars
     do
       if [ -f "$file" ];then
         strVarFiles=${strVarFiles}'-var-file="'${file}'" '
       fi
     done
 
-    ;;
-    (*)
-    echo "Unsupported command for script, exiting ...\n"; exit 1;;
-  esac
+    # load the tfvars common to all envs
+    for file in "config/shared/all"/*.tfvars
+    do
+      if [ -f "$file" ];then
+        strVarFiles=${strVarFiles}'-var-file="'${file}'" '
+      fi
+    done
 
-  # Add the tfvars files for the requested datacentre/environment
-  for file in "config/${dtc}/${env}"/*.tfvars
-  do
-    if [ -f "$file" ];then
-      strVarFiles=${strVarFiles}'-var-file="'${file}'" '
-    fi
-  done
+    # Add the state file for the requested datacentre/environment
+    strStateFiles='-state="state/'${org}'/'${env}'/'${env}'.tfstate" '
 
-  # Add the state file for the requested datacentre/environment
-  strStateFiles='-state="state/'${dtc}'/'${env}'/'${env}'.tfstate" '
+    # ------------------------------------------------------------------------------------------------
 
-  # ------------------------------------------------------------------------------------------------
-  ;;
+    case $cmd in
+      (import) # easy mode
 
-  ######### THIS NEEDS TO BE REVISITED!!! #############
-  (import)
-  # gather the command
-  cmd=$1
-  dtc=$2
-  env=$3
-  shift 3
+        # We'll just relay all the remaining parameters through
+        eval strExtraArgs=\$@;
+      ;;
 
-  # load the tfvars common to all envs
-  for file in "config/shared/all"/*.tfvars
-  do
-    if [ -f "$file" ];then
-      strVarFiles=${strVarFiles}'-var-file="'${file}'" '
-    fi
-  done
+      # (state) 
+      #   # gather the (command) operation input
+      #   opr=$1
+      #   shift 1
 
-  # Add the tfvars files for the requested datacentre/environment
-  for file in "config/${dtc}/${env}"/*.tfvars
-  do
-    if [ -f "$file" ];then
-      strVarFiles=${strVarFiles}'-var-file="'${file}'" '
-    fi
-  done
+      #   # relay all the remaining parameters (object identifiers) through
+      #   eval strExtraArgs=\$@;
+      # ;;
 
-  # All but the last argument
-  eval strExtraArgs=\${*%${!#}};
+      (plan|apply|destroy) # hard mode :-D
 
-  # The final argument
-  eval strLastArg=\${$#};
+        # All but the last argument can simply be relayed through
+        eval strExtraArgs=\${*%${!#}};
 
-  # Add the state file for the requested datacentre/environment
-  strStateFiles='-state="state/'${dtc}'/'${env}'/'${env}'.tfstate" '
+        # The final argument (Configuration) will indicate which supplementary vars files we want to load
+        eval strLastArg=\${$#};
 
-  ######### THIS NEEDS TO BE REVISITED!!! #############
+        case $strLastArg in
+          ("datacentre"|"datacentre/"|"environment"|"environment/")
+
+          # load the tfvars common to environments or datacentres accordingly
+          for file in "config/shared/${strLastArg%/}"/*.tfvars
+          do
+            if [ -f "$file" ];then
+              strVarFiles=${strVarFiles}'-var-file="'${file}'" '
+            fi
+          done
+
+          ;;
+          (*)
+          echo "Unknown configuration, did you make a typo? ... exiting ...\n"; exit 1;;
+        esac
+      ;;
+    esac
+
+    # ------------------------------------------------------------------------------------------------
   ;;
 
   (*)
