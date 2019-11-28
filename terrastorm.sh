@@ -19,10 +19,8 @@
 #
 # --------------------------------------------------------------------------------------------------
 
-strVarFiles=''
-strStateFiles=''
-strLastArg=''
-strExtraArgs=''
+# Some vars
+strVarFiles=''; strStateFiles=''; strLastArg=''; strExtraArgs=''; strFinalCall='';
 
 # Check for script dependencies
 for i in "bash" "jq"
@@ -35,17 +33,37 @@ do
 done
 
 # --------------------------------------------------------------------------------------------------
-case $1 in
+case $3 in
   (init)
     # Nothing special. Could probably be added?
   ;;
 
-  (import|plan|apply|destroy)
+  (import|plan|apply|destroy|state|taint|untaint)
     # gather the command, organisation and environment inputs
-    cmd=$1
-    org=$2
-    env=$3
+    org=$1
+    env=$2
+    cmd=$3
     shift 3
+
+    # Special modifications (EG: for state command)
+    case $cmd in
+      (state)
+      # get the second command parameter (list,mv,pull,push,rm,show)
+        opr=$1
+        shift 1
+        case $opr in
+          # check that we support the command
+          (rm)
+            # ok
+          ;;
+          (*)
+            echo "Unsupported state command ["${opr}"] ... exiting ...\n"; exit 1;
+          ;;
+        esac
+      ;;
+      (*)
+      ;;
+    esac
 
     # Add the tfvars files for the requested datacentre/environment
     for file in "config/${org}/${env}"/*.tfvars
@@ -69,22 +87,24 @@ case $1 in
     # ------------------------------------------------------------------------------------------------
 
     case $cmd in
-      (import) # easy mode
-
+      (import|taint|untaint)
         # We'll just relay all the remaining parameters through
         eval strExtraArgs=\$@;
+
+        strFinalCall="${cmd} ${strVarFiles}${strStateFiles}${strExtraArgs}"
       ;;
 
-      # (state) 
-      #   # gather the (command) operation input
-      #   opr=$1
-      #   shift 1
+      (state) 
+        # add the command and the operator together
+        cmd="${cmd} ${opr}"
 
-      #   # relay all the remaining parameters (object identifiers) through
-      #   eval strExtraArgs=\$@;
-      # ;;
+        # Relay all the remaining parameters through
+        eval strExtraArgs=\$@;
 
-      (plan|apply|destroy) # hard mode :-D
+        strFinalCall="${cmd} ${strStateFiles}${strExtraArgs}"
+      ;;
+
+      (plan|apply|destroy)
 
         # All but the last argument can simply be relayed through
         eval strExtraArgs=\${*%${!#}};
@@ -92,21 +112,25 @@ case $1 in
         # The final argument (Configuration) will indicate which supplementary vars files we want to load
         eval strLastArg=\${$#};
 
+        # This is a custom filter for terraform configurations I use. You may want to remove this section ...
+        # ... or further customise it for your needs.
         case $strLastArg in
           ("datacentre"|"datacentre/"|"environment"|"environment/")
 
-          # load the tfvars common to environments or datacentres accordingly
-          for file in "config/shared/${strLastArg%/}"/*.tfvars
-          do
-            if [ -f "$file" ];then
-              strVarFiles=${strVarFiles}'-var-file="'${file}'" '
-            fi
-          done
-
+            # load the tfvars common to environments or datacentres accordingly
+            for file in "config/shared/${strLastArg%/}"/*.tfvars
+            do
+              if [ -f "$file" ];then
+                strVarFiles=${strVarFiles}'-var-file="'${file}'" '
+              fi
+            done
           ;;
           (*)
-          echo "Unknown configuration, did you make a typo? ... exiting ...\n"; exit 1;;
+            echo "Unknown configuration, did you make a typo? ... exiting ...\n"; exit 1;
+          ;;
         esac
+      
+        strFinalCall="${cmd} ${strVarFiles}${strStateFiles}${strExtraArgs}${strLastArg}"
       ;;
     esac
 
@@ -114,7 +138,7 @@ case $1 in
   ;;
 
   (*)
-  echo "Unsupported command for script, exiting ...\n"; exit 1
+    echo "Unsupported command for script, exiting ...\n"; exit 1;
   ;;
 esac
 # --------------------------------------------------------------------------------------------------
@@ -124,11 +148,11 @@ echo configuration : ${strLastArg}
 echo extra args    : ${strExtraArgs}
 echo '--------------------------------------------------------------------------------------------------'
 echo executing     :
-echo "> $ terraform" "${cmd}" "${strVarFiles}""${strStateFiles}""${strExtraArgs}""${strLastArg}"
+echo "> $ terraform" "${strFinalCall}"
 echo '--------------------------------------------------------------------------------------------------'
 
 cmd() {
-  eval terraform "${cmd}" "${strVarFiles}""${strStateFiles}""${strExtraArgs}""${strLastArg}"
+  eval terraform "${strFinalCall}"
 }
 
 cmd
