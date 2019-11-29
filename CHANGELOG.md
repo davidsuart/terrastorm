@@ -9,12 +9,13 @@ note: this should be considered representative, not forensically comprehensive
 
 not necessarily chronological but the top one(s) most likely happening first
 
-- enhancement:   improved quote handling to support ["names"]
+- ...
 
 ## completed
 
 done, as in done done, chronological by most recent first.
 
+- enhancement:   improved quote handling to support ["names"]
 - enhancement:   support state and taint commands
 - refactor:      de-duplicate file loading across commands
 - feature:       initial development mashup
