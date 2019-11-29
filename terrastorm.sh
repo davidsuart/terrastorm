@@ -69,7 +69,7 @@ case $3 in
     for file in "config/${org}/${env}"/*.tfvars
     do
       if [ -f "$file" ];then
-        strVarFiles=${strVarFiles}'-var-file="'${file}'" '
+        strVarFiles=${strVarFiles}"-var-file ${file} "
       fi
     done
 
@@ -77,40 +77,39 @@ case $3 in
     for file in "config/shared/all"/*.tfvars
     do
       if [ -f "$file" ];then
-        strVarFiles=${strVarFiles}'-var-file="'${file}'" '
+        strVarFiles=${strVarFiles}"-var-file ${file} "
       fi
     done
 
     # Add the state file for the requested datacentre/environment
-    strStateFiles='-state="state/'${org}'/'${env}'/'${env}'.tfstate" '
+    strStateFiles="-state state/${org}/${env}/${env}.tfstate "
 
     # ------------------------------------------------------------------------------------------------
 
     case $cmd in
-      (import|taint|untaint)
+      (import)
         # We'll just relay all the remaining parameters through
-        eval strExtraArgs=\$@;
+        eval strExtraArgs="\${@}";
 
         strFinalCall="${cmd} ${strVarFiles}${strStateFiles}${strExtraArgs}"
       ;;
 
-      (state) 
+      (state|taint|untaint) 
         # add the command and the operator together
         cmd="${cmd} ${opr}"
 
         # Relay all the remaining parameters through
-        eval strExtraArgs=\$@;
+        eval strExtraArgs="\${@}";
 
         strFinalCall="${cmd} ${strStateFiles}${strExtraArgs}"
       ;;
 
       (plan|apply|destroy)
-
         # All but the last argument can simply be relayed through
-        eval strExtraArgs=\${*%${!#}};
+        eval strExtraArgs="\${*%"${!#}"}";
 
         # The final argument (Configuration) will indicate which supplementary vars files we want to load
-        eval strLastArg=\${$#};
+        eval strLastArg="\${$#}";
 
         # This is a custom filter for terraform configurations I use. You may want to remove this section ...
         # ... or further customise it for your needs.
@@ -121,7 +120,7 @@ case $3 in
             for file in "config/shared/${strLastArg%/}"/*.tfvars
             do
               if [ -f "$file" ];then
-                strVarFiles=${strVarFiles}'-var-file="'${file}'" '
+                strVarFiles=${strVarFiles}"-var-file ${file} "
               fi
             done
           ;;
