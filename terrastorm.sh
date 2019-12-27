@@ -143,15 +143,15 @@ esac
 # --------------------------------------------------------------------------------------------------
 
 echo '--------------------------------------------------------------------------------------------------'
-echo configuration : ${strLastArg}
-echo extra args    : ${strExtraArgs}
+printf "configuration : ${strLastArg} \n";
+printf "extra args    : ${strExtraArgs} \n";
 echo '--------------------------------------------------------------------------------------------------'
-echo executing     :
-echo "> $ terraform" "${strFinalCall}"
+printf "executing     :\n";
+printf " $ terraform ${strFinalCall} \n";
 echo '--------------------------------------------------------------------------------------------------'
 
 cmd() {
-  eval terraform "${strFinalCall}"
+  terraform ${strFinalCall}
 }
 
 cmd
